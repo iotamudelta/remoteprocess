@@ -49,8 +49,10 @@ impl Unwinder {
             let mut cursor = std::mem::MaybeUninit::uninit();
             let ret = init_local(cursor.as_mut_ptr(), self.addr_space);
             if ret != 0 {
+                println!("Error in local init.");
                 return Err(crate::Error::LibunwindError(Error::from(-ret)));
             }
+            println!("Local init successful.");
             Ok(Cursor {
                 cursor: cursor.assume_init(),
                 upt,
@@ -128,6 +130,7 @@ impl Cursor {
                     }
                 }
             }
+            println!("Proc name {}", name);
             Ok(std::ffi::CStr::from_ptr(name.as_ptr())
                 .to_string_lossy()
                 .into_owned())
@@ -141,6 +144,7 @@ impl Iterator for Cursor {
     fn next(&mut self) -> Option<Result<u64>> {
         // we need to return the initial stack frame, so only call unw_step if
         // this isn't the first frame
+        println!("next {}", self.initial_frame);
         if !self.initial_frame {
             unsafe {
                 match step(&mut self.cursor) {
