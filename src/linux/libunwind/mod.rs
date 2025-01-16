@@ -7,7 +7,7 @@ use std;
 mod bindings;
 
 use self::bindings::{
-    unw_accessors_t, unw_addr_space_t, unw_caching_policy_t,
+    unw_accessors_t, unw_addr_space_t, unw_caching_policy_t, unw_context_t,
     unw_caching_policy_t_UNW_CACHE_PER_THREAD, unw_cursor, unw_cursor_t,
     unw_frame_regnum_t_UNW_REG_IP, unw_frame_regnum_t_UNW_REG_SP, unw_regnum_t, unw_word_t,
 };
@@ -46,8 +46,14 @@ impl Unwinder {
     pub fn cursor(&self, thread: &crate::Thread) -> Result<Cursor> {
         unsafe {
             let upt = _UPT_create(thread.id()? as _);
+            // remote:
+            //let ret = init_remote(cursor.as_mut_ptr(), self.addr_space, upt);
             let mut cursor = std::mem::MaybeUninit::uninit();
-            let ret = init_remote(cursor.as_mut_ptr(), self.addr_space, upt);
+            // local:
+            let mut context = std::mem::MaybeUninit::uninit();;
+            getcontext(context.as_mut_ptr());
+            let ret = init_local(cursor.as_mut_ptr(), context.as_mut_ptr());
+            // local end
             if ret != 0 {
                 return Err(crate::Error::LibunwindError(Error::from(-ret)));
             }
@@ -141,7 +147,8 @@ impl Iterator for Cursor {
     fn next(&mut self) -> Option<Result<u64>> {
         // we need to return the initial stack frame, so only call unw_step if
         // this isn't the first frame
-        if !self.initial_frame {
+        // remote:
+        //if !self.initial_frame {
             unsafe {
                 match step(&mut self.cursor) {
                     0 => return None,
@@ -151,9 +158,10 @@ impl Iterator for Cursor {
                     _ => {}
                 }
             };
-        } else {
+        //remote:
+        //} else {
             self.initial_frame = false;
-        }
+        //}
 
         match self.ip() {
             Ok(0) => None,
@@ -188,6 +196,10 @@ extern "C" {
     fn destroy_addr_space(addr: unw_addr_space_t) -> c_void;
     #[link_name = "_Ux86_64_init_remote"]
     fn init_remote(cursor: *mut unw_cursor_t, addr: unw_addr_space_t, ptr: *mut c_void) -> c_int;
+    #[link_name = "_Ux86_64_getcontext"]
+    fn getcontext(context: *mut unw_context_t) -> c_int;
+    #[link_name = "_Ux86_64_init_local"]
+    fn init_local(cursor: *mut unw_cursor_t, context: *mut unw_context_t) -> c_int;
     #[link_name = "_Ux86_64_get_reg"]
     fn get_reg(cursor: *mut unw_cursor_t, reg: unw_regnum_t, val: *mut unw_word_t) -> c_int;
     #[link_name = "_Ux86_64_step"]
@@ -211,6 +223,10 @@ extern "C" {
     fn destroy_addr_space(addr: unw_addr_space_t) -> c_void;
     #[link_name = "_Ux86_init_remote"]
     fn init_remote(cursor: *mut unw_cursor_t, addr: unw_addr_space_t, ptr: *mut c_void) -> c_int;
+    #[link_name = "_Ux86_getcontext"]
+    fn getcontext(context: *mut unw_context_t) -> c_int;
+    #[link_name = "_Ux86_init_local"]
+    fn init_local(cursor: *mut unw_cursor_t, context: *mut unw_context_t) -> c_int;
     #[link_name = "_Ux86_get_reg"]
     fn get_reg(cursor: *mut unw_cursor_t, reg: unw_regnum_t, val: *mut unw_word_t) -> c_int;
     #[link_name = "_Ux86_step"]
@@ -235,6 +251,10 @@ extern "C" {
     fn destroy_addr_space(addr: unw_addr_space_t) -> c_void;
     #[link_name = "_Uarm_init_remote"]
     fn init_remote(cursor: *mut unw_cursor_t, addr: unw_addr_space_t, ptr: *mut c_void) -> c_int;
+    #[link_name = "_Uarm_getcontext"]
+    fn getcontext(context: *mut unw_context_t) -> c_int;
+    #[link_name = "_Uarm_init_local"]
+    fn init_local(cursor: *mut unw_cursor_t, context: *mut unw_context_t) -> c_int;
     #[link_name = "_Uarm_get_reg"]
     fn get_reg(cursor: *mut unw_cursor_t, reg: unw_regnum_t, val: *mut unw_word_t) -> c_int;
     #[link_name = "_Uarm_step"]
@@ -259,6 +279,10 @@ extern "C" {
     fn destroy_addr_space(addr: unw_addr_space_t) -> c_void;
     #[link_name = "_Uaarch64_init_remote"]
     fn init_remote(cursor: *mut unw_cursor_t, addr: unw_addr_space_t, ptr: *mut c_void) -> c_int;
+    #[link_name = "_Uaarch64_getcontext"]
+    fn getcontext(context: *mut unw_context_t) -> c_int;
+    #[link_name = "_Uaarch64_init_local"]
+    fn init_local(cursor: *mut unw_cursor_t, context: *mut unw_context_t) -> c_int;
     #[link_name = "_Uaarch64_get_reg"]
     fn get_reg(cursor: *mut unw_cursor_t, reg: unw_regnum_t, val: *mut unw_word_t) -> c_int;
     #[link_name = "_Uaarch64_step"]
