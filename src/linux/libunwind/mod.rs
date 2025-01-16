@@ -31,14 +31,16 @@ type Result<T> = std::result::Result<T, crate::Error>;
 
 pub struct Unwinder {
     pub addr_space: unw_addr_space_t,
+    pub context: unw_cursor_t,
 }
 
 impl Unwinder {
     pub fn new() -> Result<Unwinder> {
         unsafe {
-            let addr_space = create_addr_space(&_UPT_accessors as *const _ as *mut _, 0);
+            //let addr_space = create_addr_space(&_UPT_accessors as *const _ as *mut _, 0);
+            let context =  
             // enabling caching provides a modest speedup - but is still much slower than the gimli unwinding
-            set_caching_policy(addr_space, unw_caching_policy_t_UNW_CACHE_PER_THREAD);
+            //set_caching_policy(addr_space, unw_caching_policy_t_UNW_CACHE_PER_THREAD);
             Ok(Unwinder { addr_space })
         }
     }
@@ -47,7 +49,7 @@ impl Unwinder {
         unsafe {
             let upt = _UPT_create(thread.id()? as _);
             let mut cursor = std::mem::MaybeUninit::uninit();
-            let ret = init_local(cursor.as_mut_ptr(), self.addr_space);
+            let ret = init_local(cursor.as_mut_ptr(), self.context);
             if ret != 0 {
                 println!("Error in local init.");
                 return Err(crate::Error::LibunwindError(Error::from(-ret)));
@@ -192,8 +194,10 @@ extern "C" {
     fn destroy_addr_space(addr: unw_addr_space_t) -> c_void;
     #[link_name = "_Ux86_64_init_remote"]
     fn init_remote(cursor: *mut unw_cursor_t, addr: unw_addr_space_t, ptr: *mut c_void) -> c_int;
+    #[link_name = "_Ux86_64_getcontext"]
+    fn getcontext(context: unw_context_t) -> c_int;
     #[link_name = "_Ux86_64_init_local"]
-    fn init_local(cursor: *mut unw_cursor_t, addr: unw_addr_space_t) -> c_int;
+    fn init_local(cursor: *mut unw_cursor_t, context: unw_context_t) -> c_int;
     #[link_name = "_Ux86_64_get_reg"]
     fn get_reg(cursor: *mut unw_cursor_t, reg: unw_regnum_t, val: *mut unw_word_t) -> c_int;
     #[link_name = "_Ux86_64_step"]
@@ -217,8 +221,10 @@ extern "C" {
     fn destroy_addr_space(addr: unw_addr_space_t) -> c_void;
     #[link_name = "_Ux86_init_remote"]
     fn init_remote(cursor: *mut unw_cursor_t, addr: unw_addr_space_t, ptr: *mut c_void) -> c_int;
+    #[link_name = "_Ux86_getcontext"]
+    fn getcontext(context: unw_context_t) -> c_int;
     #[link_name = "_Ux86_init_local"]
-    fn init_local(cursor: *mut unw_cursor_t, addr: unw_addr_space_t) -> c_int;
+    fn init_local(cursor: *mut unw_cursor_t, context: unw_context_t) -> c_int;
     #[link_name = "_Ux86_get_reg"]
     fn get_reg(cursor: *mut unw_cursor_t, reg: unw_regnum_t, val: *mut unw_word_t) -> c_int;
     #[link_name = "_Ux86_step"]
@@ -243,8 +249,10 @@ extern "C" {
     fn destroy_addr_space(addr: unw_addr_space_t) -> c_void;
     #[link_name = "_Uarm_init_remote"]
     fn init_remote(cursor: *mut unw_cursor_t, addr: unw_addr_space_t, ptr: *mut c_void) -> c_int;
+    #[link_name = "_Uarm_getcontext"]
+    fn getcontext(context: unw_context_t) -> c_int;
     #[link_name = "_Uarm_init_local"]
-    fn init_local(cursor: *mut unw_cursor_t, addr: unw_addr_space_t) -> c_int;
+    fn init_local(cursor: *mut unw_cursor_t, context: unw_context_t) -> c_int;
     #[link_name = "_Uarm_get_reg"]
     fn get_reg(cursor: *mut unw_cursor_t, reg: unw_regnum_t, val: *mut unw_word_t) -> c_int;
     #[link_name = "_Uarm_step"]
@@ -269,8 +277,10 @@ extern "C" {
     fn destroy_addr_space(addr: unw_addr_space_t) -> c_void;
     #[link_name = "_Uaarch64_init_remote"]
     fn init_remote(cursor: *mut unw_cursor_t, addr: unw_addr_space_t, ptr: *mut c_void) -> c_int;
+    #[link_name = "_Uaarch64_getcontext"]
+    fn getcontext(context: unw_context_t) -> c_int;
     #[link_name = "_Uaarch64_init_local"]
-    fn init_local(cursor: *mut unw_cursor_t, addr: unw_addr_space_t) -> c_int;
+    fn init_local(cursor: *mut unw_cursor_t, context: unw_context_t) -> c_int;
     #[link_name = "_Uaarch64_get_reg"]
     fn get_reg(cursor: *mut unw_cursor_t, reg: unw_regnum_t, val: *mut unw_word_t) -> c_int;
     #[link_name = "_Uaarch64_step"]
