@@ -38,7 +38,7 @@ impl Unwinder {
         unsafe {
             let addr_space = create_addr_space(&_UPT_accessors as *const _ as *mut _, 0);
             // enabling caching provides a modest speedup - but is still much slower than the gimli unwinding
-            //set_caching_policy(addr_space, unw_caching_policy_t_UNW_CACHE_PER_THREAD);
+            set_caching_policy(addr_space, unw_caching_policy_t_UNW_CACHE_PER_THREAD);
             Ok(Unwinder { addr_space })
         }
     }
@@ -46,15 +46,17 @@ impl Unwinder {
     pub fn cursor(&self, thread: &crate::Thread) -> Result<Cursor> {
         unsafe {
             let upt = _UPT_create(thread.id()? as _);
+            // remote:
+            //let ret = init_remote(cursor.as_mut_ptr(), self.addr_space, upt);
             let mut cursor = std::mem::MaybeUninit::uninit();
+            // local:
             let mut context = std::mem::MaybeUninit::uninit();;
             getcontext(context.as_mut_ptr());
             let ret = init_local(cursor.as_mut_ptr(), context.as_mut_ptr());
+            // local end
             if ret != 0 {
-                println!("Error in local init.");
                 return Err(crate::Error::LibunwindError(Error::from(-ret)));
             }
-            println!("Local init successful.");
             Ok(Cursor {
                 cursor: cursor.assume_init(),
                 upt,
@@ -132,7 +134,6 @@ impl Cursor {
                     }
                 }
             }
-            println!("Proc name {:?}", name);
             Ok(std::ffi::CStr::from_ptr(name.as_ptr())
                 .to_string_lossy()
                 .into_owned())
@@ -146,7 +147,7 @@ impl Iterator for Cursor {
     fn next(&mut self) -> Option<Result<u64>> {
         // we need to return the initial stack frame, so only call unw_step if
         // this isn't the first frame
-        println!("next {}", self.initial_frame);
+        // remote:
         //if !self.initial_frame {
             unsafe {
                 match step(&mut self.cursor) {
@@ -157,9 +158,10 @@ impl Iterator for Cursor {
                     _ => {}
                 }
             };
+        //remote:
         //} else {
             self.initial_frame = false;
-       // }
+        //}
 
         match self.ip() {
             Ok(0) => None,
