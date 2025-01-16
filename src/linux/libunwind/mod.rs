@@ -130,7 +130,7 @@ impl Cursor {
                     }
                 }
             }
-            println!("Proc name {}", name);
+            println!("Proc name {:?}", name);
             Ok(std::ffi::CStr::from_ptr(name.as_ptr())
                 .to_string_lossy()
                 .into_owned())
@@ -145,7 +145,7 @@ impl Iterator for Cursor {
         // we need to return the initial stack frame, so only call unw_step if
         // this isn't the first frame
         println!("next {}", self.initial_frame);
-        if !self.initial_frame {
+        //if !self.initial_frame {
             unsafe {
                 match step(&mut self.cursor) {
                     0 => return None,
@@ -155,9 +155,9 @@ impl Iterator for Cursor {
                     _ => {}
                 }
             };
-        } else {
+        //} else {
             self.initial_frame = false;
-        }
+       // }
 
         match self.ip() {
             Ok(0) => None,
